@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KS.Fiks.Link.JsonModelGenerator", "KS.Fiks.Link.JsonModelGenerator\KS.Fiks.Link.JsonModelGenerator.csproj", "{AEC510E5-8E7D-4185-ADA2-8C0C0C966FD1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KS.Fiks.Link.Models.V1", "KS.Fiks.Link.Models.V1\KS.Fiks.Link.Models.V1.csproj", "{8C77512E-72BA-40D5-AE6C-12879D2EBC91}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AEC510E5-8E7D-4185-ADA2-8C0C0C966FD1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AEC510E5-8E7D-4185-ADA2-8C0C0C966FD1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AEC510E5-8E7D-4185-ADA2-8C0C0C966FD1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AEC510E5-8E7D-4185-ADA2-8C0C0C966FD1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8C77512E-72BA-40D5-AE6C-12879D2EBC91}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8C77512E-72BA-40D5-AE6C-12879D2EBC91}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8C77512E-72BA-40D5-AE6C-12879D2EBC91}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8C77512E-72BA-40D5-AE6C-12879D2EBC91}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
