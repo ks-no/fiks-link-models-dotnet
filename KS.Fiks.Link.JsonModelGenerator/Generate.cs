@@ -12,20 +12,20 @@ static class Generator
     const string namespaceSuffix = "Typer";
     const string fellesNamespace = $"{commonNamespace}.{fellesSubNamespace}";
 
+    private static IEnumerable<string>? allFellesSchemas;
+
     private static readonly string[] fellesFilenamesSorted = new []
     {
         "no.ks.fiks.Link.v1.felles.adresse.schema.json",
-        "no.ks.fiks.Link.v1.felles.eier.schema.json",
-        "no.ks.fiks.Link.v1.felles.matrikkelnummer.schema.json",
-        "no.ks.fiks.Link.v1.felles.eiendom.schema.json",
-        "no.ks.fiks.Link.v1.felles.flate.schema.json",
         "no.ks.fiks.Link.v1.felles.personid.schema.json",
         "no.ks.fiks.Link.v1.felles.organisasjonid.schema.json",
+        "no.ks.fiks.Link.v1.felles.matrikkelnummer.schema.json",
         "no.ks.fiks.Link.v1.felles.kontakt.schema.json",
+        "no.ks.fiks.Link.v1.felles.eier.schema.json",
+        "no.ks.fiks.Link.v1.felles.eiendom.schema.json",
+        "no.ks.fiks.Link.v1.felles.flate.schema.json",
         "no.ks.fiks.Link.v1.felles.posisjon.schema.json",
     };
-
-    private static IEnumerable<string>? allFellesSchemas;
 
     public static void Generate(string sourcePath, string outputFolder)
     {
@@ -266,12 +266,6 @@ static class Generator
 
     static string GetClassName(string schemaFilename, string namespaceName)
     {
-        if (string.IsNullOrEmpty(namespaceName))
-        {
-            return string.Join("",
-                schemaFilename.Split($".Link.v1.")[1].Replace(".schema.json", "").Split('.')
-                    .Select(ToUpper));
-        }
         return string.Join("",
             schemaFilename.Split($".{namespaceName}.")[1].Replace(".schema.json", "").Split('.')
                 .Select(ToUpper));
