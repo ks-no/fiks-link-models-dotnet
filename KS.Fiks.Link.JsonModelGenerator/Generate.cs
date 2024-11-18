@@ -7,6 +7,7 @@ static class Generator
 {
     const string commonNamespace = "KS.Fiks.Link.V1";
     const string feilmeldingSubNamespace = "feilmelding";
+    const string innsynSubNamespace = "innsyn";
     const string fellesSubNamespace = "felles";
     const string namespaceSuffix = "Typer";
     const string fellesNamespace = $"{commonNamespace}.{fellesSubNamespace}";
@@ -18,11 +19,9 @@ static class Generator
         "no.ks.fiks.Link.v1.felles.matrikkelnummer.schema.json",
         "no.ks.fiks.Link.v1.felles.eiendom.schema.json",
         "no.ks.fiks.Link.v1.felles.flate.schema.json",
+        "no.ks.fiks.Link.v1.felles.personid.schema.json",
+        "no.ks.fiks.Link.v1.felles.organisasjonid.schema.json",
         "no.ks.fiks.Link.v1.felles.kontakt.schema.json",
-        "no.ks.fiks.Link.v1.felles.kontakteier.schema.json",
-        "no.ks.fiks.Link.v1.felles.kontaktorganisasjon.schema.json",
-        "no.ks.fiks.Link.v1.felles.kontaktperson.schema.json",
-        "no.ks.fiks.Link.v1.felles.matrikkeleier.schema.json",
         "no.ks.fiks.Link.v1.felles.posisjon.schema.json",
     };
 
@@ -244,6 +243,10 @@ static class Generator
         if (schemaFilename.Contains($".{feilmeldingSubNamespace}."))
         {
             namespacePrefix = feilmeldingSubNamespace;
+        }
+        else if (schemaFilename.Contains($".{innsynSubNamespace}."))
+        {
+            namespacePrefix = innsynSubNamespace;
         }
         else if (schemaFilename.Contains($".{fellesSubNamespace}."))
         {
