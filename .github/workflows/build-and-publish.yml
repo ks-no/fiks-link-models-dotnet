@@ -148,7 +148,7 @@ jobs:
         run: |
           mkdir -p "$MODELS_FOLDER/Schema"
           cp -r temp/Schema/V1 "$MODELS_FOLDER/Schema/"
-          cp unfold/* "$MODELS_FOLDER/"
+          cp -r unfold/* "$MODELS_FOLDER/"
 
       - name: Build and pack
         working-directory: ${{ env.MODELS_FOLDER }}
