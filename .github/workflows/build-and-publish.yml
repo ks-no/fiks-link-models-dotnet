@@ -129,7 +129,7 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <configuration>
             <packageSources>
-              <add key="Artifactory" value="https://artifactory.fiks.ks.no/artifactory/api/nuget/nuget-all/index.json" />
+              <add key="Artifactory" value="https://artifactory.fiks.ks.no/artifactory/api/nuget/v3/nuget-all/index.json" />
             </packageSources>
             <packageSourceCredentials>
               <Artifactory>
