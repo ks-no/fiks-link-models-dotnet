@@ -1,0 +1,235 @@
+name: Build and Publish
+
+on:
+  push:
+    branches: [github-actions]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      isRelease:
+        description: 'Skal prosjektet releases?'
+        type: boolean
+        default: false
+      pushToNugetOrg:
+        description: 'Skal artifaktet pushes til nuget.org? Kun relevant for pre-release bygg da release alltid pushes dit'
+        type: boolean
+        default: false
+      specifiedVersion:
+        description: 'Hva er det nye versjonsnummeret (X.X.X)? Som default releases snapshot-versjonen'
+        type: string
+        default: ''
+      releaseNotes:
+        description: 'Hva er endret i denne releasen?'
+        type: string
+        default: 'Ingen endringer utført'
+      securityReview:
+        description: 'Har endringene sikkerhetsmessige konsekvenser, og hvilke tiltak er i så fall iverksatt?'
+        type: string
+        default: 'Endringene har ingen sikkerhetskonsekvenser'
+      reviewer:
+        description: 'Hvem har gjort review?'
+        type: string
+        default: 'Endringene krever ikke review'
+      triggerbranch:
+        description: 'Hvilke branch fra KS.Fiks.Link.Specification skal det bygges fra?'
+        type: string
+        default: 'main'
+
+env:
+  MODELS_FOLDER: KS.Fiks.Link.Models.V1
+  GENERATOR_FOLDER: KS.Fiks.Link.JsonModelGenerator
+  DOTNET_VERSION: '8.0.x'
+
+jobs:
+  build-and-publish:
+    runs-on: [self-hosted, x64]
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 #v6.0.3
+        with:
+          fetch-depth: 0
+      - name: Initialize version variables
+        id: init
+        shell: bash
+        run: |
+          GIT_SHA=$(git rev-parse HEAD | cut -c1-7)
+          echo "GIT_SHA=$GIT_SHA" >> "$GITHUB_ENV"
+
+          # Read VersionPrefix from the .csproj file
+          CURRENT_VERSION=$(grep -oPm1 '(?<=<VersionPrefix>)[^<]+' "$MODELS_FOLDER/$MODELS_FOLDER.csproj")
+          echo "CURRENT_VERSION=$CURRENT_VERSION" >> "$GITHUB_ENV"
+
+          # Determine next version
+          SPECIFIED_VERSION="${{ inputs.specifiedVersion }}"
+          if [ -z "$SPECIFIED_VERSION" ]; then
+            IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+            patch=$((patch + 1))
+            NEXT_VERSION="$major.$minor.$patch"
+          else
+            NEXT_VERSION="$SPECIFIED_VERSION"
+          fi
+          echo "NEXT_VERSION=$NEXT_VERSION" >> "$GITHUB_ENV"
+
+          # Determine version/build suffix
+          IS_RELEASE="${{ inputs.isRelease }}"
+          TRIGGER_BRANCH="${{ inputs.triggerbranch }}"
+          if [ "$IS_RELEASE" = "true" ]; then
+            VERSION_SUFFIX=""
+            BUILD_SUFFIX=""
+          else
+            TIMESTAMP=$(date -u +"%Y%m%d%H%M%S%3N")
+            if [ "${TRIGGER_BRANCH:-main}" = "main" ] && [ "$GITHUB_REF_NAME" = "main" ]; then
+              RC_PREFIX="rc."
+            else
+              RC_PREFIX=""
+            fi
+            VERSION_SUFFIX="${RC_PREFIX}build.${TIMESTAMP}"
+            BUILD_SUFFIX="--version-suffix ${VERSION_SUFFIX}"
+          fi
+          echo "VERSION_SUFFIX=$VERSION_SUFFIX" >> "$GITHUB_ENV"
+          echo "BUILD_SUFFIX=$BUILD_SUFFIX" >> "$GITHUB_ENV"
+
+          echo "Initialized: CURRENT_VERSION=$CURRENT_VERSION NEXT_VERSION=$NEXT_VERSION BUILD_SUFFIX=$BUILD_SUFFIX"
+
+      # ── Fetch specification ─────────────────────────────────────────────────
+      - name: Fetch specification from fiks-link-specification
+        uses: actions/checkout@v4
+        with:
+          repository: ks-no/fiks-link-specification
+          ref: ${{ inputs.triggerbranch || 'main' }}
+          path: temp
+
+      # ── Generate models ─────────────────────────────────────────────────────
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Generate models
+        working-directory: ${{ env.GENERATOR_FOLDER }}
+        run: |
+          cp -r ../temp/Schema .
+          dotnet run Schema/V1 output
+
+      - name: Unfold generated artifacts
+        run: |
+          mkdir -p unfold
+          mv "$GENERATOR_FOLDER/output/"* unfold/
+
+      # ── Build ────────────────────────────────────────────────────────────────
+      - name: Restore NuGet packages
+        working-directory: ${{ env.MODELS_FOLDER }}
+        run: dotnet restore --configfile ${{ secrets.NUGET_CONFIG_FILE || 'nuget.config' }}
+        env:
+          NUGET_AUTH_TOKEN: ${{ secrets.ARTIFACTORY_TOKEN }}
+
+      - name: Copy schemas and generated models into models project
+        run: |
+          mkdir -p "$MODELS_FOLDER/Schema"
+          cp -r temp/Schema/V1 "$MODELS_FOLDER/Schema/"
+          cp unfold/* "$MODELS_FOLDER/"
+
+      - name: Build and pack
+        working-directory: ${{ env.MODELS_FOLDER }}
+        run: dotnet build --no-restore -c Release ${{ env.BUILD_SUFFIX }}
+
+      - name: Collect nupkg artifacts
+        working-directory: ${{ env.MODELS_FOLDER }}
+        run: |
+          find . -path "*/Release/*.nupkg" -exec mv {} . \;
+          find . -path "*/Release/*.snupkg" -exec mv {} . \;
+
+      - name: Upload nupkg
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: ${{ env.MODELS_FOLDER }}/*.nupkg
+
+      - name: Upload snupkg
+        uses: actions/upload-artifact@v4
+        with:
+          name: snupkg
+          path: ${{ env.MODELS_FOLDER }}/*.snupkg
+
+      # ── Sign package ─────────────────────────────────────────────────────────
+      - name: Setup SM_CLIENT_CERT_FILE from base64 secret data
+        shell: bash
+        run: |
+          export SM_CLIENT_CERT_FILE=${RUNNER_TEMP_DIR}/Certificate_pkcs12.p12
+          echo "SM_CLIENT_CERT_FILE=$SM_CLIENT_CERT_FILE" >> "$GITHUB_ENV"
+          echo "${{ secrets.SM_CLIENT_CERT_FILE_B64 }}" | base64 --decode > ${SM_CLIENT_CERT_FILE}
+
+      - name: Sign NuGet package via DigiCert Software Trust Manager
+        uses: digicert/code-signing-software-trust-action@v1
+        with:
+          simple-signing-mode: true
+          input: ${{ env.MODELS_FOLDER }}
+          keypair-alias: ${{ vars.SM_KEYPAIR_ALIAS }}
+        env:
+          SM_HOST: ${{ vars.SM_HOST }}
+          SM_API_KEY: ${{ secrets.SM_API_KEY }}
+          SM_CLIENT_CERT_FILE: ${{ env.SM_CLIENT_CERT_FILE }}
+          SM_CLIENT_CERT_PASSWORD: ${{ secrets.SM_CLIENT_CERT_PASSWORD }}
+
+      - name: Upload signed nupkg
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-nupkg
+          path: ${{ env.MODELS_FOLDER }}/*.nupkg
+
+      # ── Push to Artifactory ───────────────────────────────────────────────────
+      - name: Push to Artifactory
+        working-directory: ${{ env.MODELS_FOLDER }}
+        env:
+          NUGET_ACCESS_KEY: ${{ secrets.ARTIFACTORY_TOKEN }}
+          NUGET_PUSH_REPO: 'https://artifactory.fiks.ks.no/artifactory/api/nuget/nuget-all'
+        run: dotnet nuget push *.nupkg -k "$NUGET_ACCESS_KEY" -s "$NUGET_PUSH_REPO"
+
+      # ── Push to nuget.org ─────────────────────────────────────────────────────
+      - name: Push to nuget.org
+        if: ${{ inputs.isRelease == true || inputs.pushToNugetOrg == true }}
+        working-directory: ${{ env.MODELS_FOLDER }}
+        env:
+          NUGET_ACCESS_KEY: ${{ secrets.KS_NUGET_API_KEY }}
+          NUGET_PUSH_REPO: 'https://api.nuget.org/v3/index.json'
+        run: dotnet nuget push *.nupkg -k "$NUGET_ACCESS_KEY" -s "$NUGET_PUSH_REPO"
+
+      # ── Set next version, tag and push ────────────────────────────────────────
+      - name: Bump version in csproj
+        if: ${{ inputs.isRelease == true }}
+        working-directory: ${{ env.MODELS_FOLDER }}
+        run: |
+          sed -i "s|<VersionPrefix>.*</VersionPrefix>|<VersionPrefix>${{ env.NEXT_VERSION }}</VersionPrefix>|" \
+            "$MODELS_FOLDER.csproj"
+
+      - name: Commit and tag release
+        if: ${{ inputs.isRelease == true }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$MODELS_FOLDER/$MODELS_FOLDER.csproj"
+          git commit -m "chore: bump version to ${{ env.NEXT_VERSION }} [skip ci]"
+          git tag "v${{ env.CURRENT_VERSION }}"
+          git push origin HEAD:${{ github.ref_name }}
+          git push origin "v${{ env.CURRENT_VERSION }}"
+
+      - name: Create GitHub Release
+        if: ${{ inputs.isRelease == true }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.CURRENT_VERSION }}
+          name: v${{ env.CURRENT_VERSION }}
+          body: |
+            **Release notes:**
+            ${{ inputs.releaseNotes }}
+
+            **Security review:**
+            ${{ inputs.securityReview }}
+
+            **Reviewer:** ${{ inputs.reviewer }}
+          files: |
+            ${{ env.MODELS_FOLDER }}/*.nupkg
+            ${{ env.MODELS_FOLDER }}/*.snupkg
