@@ -120,11 +120,29 @@ jobs:
           mv "$GENERATOR_FOLDER/output/"* unfold/
 
       # ── Build ────────────────────────────────────────────────────────────────
+      - name: Write nuget.config
+        env:
+          ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME }}
+          ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
+        run: |
+          cat > "$MODELS_FOLDER/nuget.config" <<EOF
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <packageSources>
+              <add key="Artifactory" value="https://artifactory.fiks.ks.no/artifactory/api/nuget/nuget-all/index.json" />
+            </packageSources>
+            <packageSourceCredentials>
+              <Artifactory>
+                <add key="Username" value="${ARTIFACTORY_USERNAME}" />
+                <add key="ClearTextPassword" value="${ARTIFACTORY_PASSWORD}" />
+              </Artifactory>
+            </packageSourceCredentials>
+          </configuration>
+          EOF
+
       - name: Restore NuGet packages
         working-directory: ${{ env.MODELS_FOLDER }}
-        run: dotnet restore --configfile ${{ secrets.NUGET_CONFIG_FILE || 'nuget.config' }}
-        env:
-          NUGET_AUTH_TOKEN: ${{ secrets.ARTIFACTORY_TOKEN }}
+        run: dotnet restore --configfile nuget.config
 
       - name: Copy schemas and generated models into models project
         run: |
