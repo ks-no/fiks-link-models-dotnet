@@ -176,7 +176,7 @@ jobs:
       - name: Setup SM_CLIENT_CERT_FILE from base64 secret data
         shell: bash
         run: |
-          export SM_CLIENT_CERT_FILE=${RUNNER_TEMP_DIR}/Certificate_pkcs12.p12
+          export SM_CLIENT_CERT_FILE=${RUNNER_TEMP}/Certificate_pkcs12.p12
           echo "SM_CLIENT_CERT_FILE=$SM_CLIENT_CERT_FILE" >> "$GITHUB_ENV"
           echo "${{ secrets.SM_CLIENT_CERT_FILE_B64 }}" | base64 --decode > ${SM_CLIENT_CERT_FILE}
 
