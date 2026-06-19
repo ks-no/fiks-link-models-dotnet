@@ -202,8 +202,9 @@ jobs:
       - name: Push to Artifactory
         working-directory: ${{ env.MODELS_FOLDER }}
         env:
+          ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
           NUGET_PUSH_REPO: 'https://artifactory.fiks.ks.no/artifactory/api/nuget/nuget-all'
-        run: dotnet nuget push *.nupkg -s "$NUGET_PUSH_REPO" --configfile nuget.config
+        run: dotnet nuget push *.nupkg -k "$ARTIFACTORY_PASSWORD" -s "$NUGET_PUSH_REPO"
 
       # ── Push to nuget.org ─────────────────────────────────────────────────────
       - name: Push to nuget.org
