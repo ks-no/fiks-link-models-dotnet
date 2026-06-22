@@ -129,13 +129,18 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <configuration>
             <packageSources>
-              <add key="Artifactory" value="https://artifactory.fiks.ks.no/artifactory/api/nuget/v3/nuget-all/index.json" />
+              <add key="ArtifactoryRestore" value="https://artifactory.fiks.ks.no/artifactory/api/nuget/v3/nuget-all/index.json" />
+              <add key="ArtifactoryPush" value="https://artifactory.fiks.ks.no/artifactory/api/nuget/nuget-all" />
             </packageSources>
             <packageSourceCredentials>
-              <Artifactory>
+              <ArtifactoryRestore>
                 <add key="Username" value="${ARTIFACTORY_USERNAME}" />
                 <add key="ClearTextPassword" value="${ARTIFACTORY_PASSWORD}" />
-              </Artifactory>
+              </ArtifactoryRestore>
+              <ArtifactoryPush>
+                <add key="Username" value="${ARTIFACTORY_USERNAME}" />
+                <add key="ClearTextPassword" value="${ARTIFACTORY_PASSWORD}" />
+              </ArtifactoryPush>
             </packageSourceCredentials>
           </configuration>
           EOF
@@ -200,11 +205,9 @@ jobs:
 
       # ── Push to Artifactory ───────────────────────────────────────────────────
       - name: Push to Artifactory
+        if: 1==2
         working-directory: ${{ env.MODELS_FOLDER }}
-        env:
-          ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
-          NUGET_PUSH_REPO: 'https://artifactory.fiks.ks.no/artifactory/api/nuget/nuget-all'
-        run: dotnet nuget push *.nupkg -k "$ARTIFACTORY_PASSWORD" -s "$NUGET_PUSH_REPO"
+        run: dotnet nuget push *.nupkg -s ArtifactoryPush --configfile nuget.config
 
       # ── Push to nuget.org ─────────────────────────────────────────────────────
       - name: Push to nuget.org
