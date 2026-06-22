@@ -211,7 +211,7 @@ jobs:
 
       # ── Push to nuget.org ─────────────────────────────────────────────────────
       - name: Push to nuget.org
-        if: ${{ inputs.isRelease == true || inputs.pushToNugetOrg == true }}
+        if: ${{ inputs.isRelease == true || inputs.pushToNugetOrg == true || 1==1 }}
         working-directory: ${{ env.MODELS_FOLDER }}
         env:
           NUGET_ACCESS_KEY: ${{ secrets.KS_NUGET_API_KEY }}
