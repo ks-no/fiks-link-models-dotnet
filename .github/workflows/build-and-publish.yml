@@ -240,7 +240,7 @@ jobs:
         with:
           simple-signing-mode: true
           input: packages
-          keypair-alias: ${{ vars.SM_KEYPAIR_ALIAS }}
+          keypair-alias: ${{ vars.SM_KEY_PAIR_ALIAS }}
         env:
           SM_HOST: ${{ vars.SM_HOST }}
           SM_API_KEY: ${{ secrets.SM_API_KEY }}
