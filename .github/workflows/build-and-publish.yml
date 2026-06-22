@@ -195,7 +195,15 @@ jobs:
         with:
           name: nupkg
           path: packages
-
+    
+      - name: Sync sertifikat til Windows-store
+        shell: cmd
+        env:
+          SM_HOST: ${{ vars.SM_HOST }}
+          SM_API_KEY: ${{ secrets.SM_API_KEY }}
+          SM_CLIENT_CERT_FILE: ${{ env.SM_CLIENT_CERT_FILE }}
+          SM_CLIENT_CERT_PASSWORD: ${{ secrets.SM_CLIENT_CERT_PASSWORD }}
+        run: smctl windows certsync --keypair-alias=%SM_KEYPAIR_ALIAS%
       # ── Sign package ───────────────────────────────────────────────────────
       - name: Setup SM_CLIENT_CERT_FILE from base64 secret data
         shell: bash
@@ -203,18 +211,6 @@ jobs:
           export SM_CLIENT_CERT_FILE="${RUNNER_TEMP}/Certificate_pkcs12.p12"
           echo "SM_CLIENT_CERT_FILE=$SM_CLIENT_CERT_FILE" >> "$GITHUB_ENV"
           echo "${{ secrets.SM_CLIENT_CERT_FILE }}" | base64 --decode > "${SM_CLIENT_CERT_FILE}"
-
-
-      - name: Setup Software Trust Manager (kun oppsett)
-        uses: digicert/code-signing-software-trust-action@v1
-        with:
-          simple-signing-mode: true
-          # MERK: ingen input/keypair-alias her – vi signerer eksplisitt under
-        env:
-          SM_HOST: ${{ vars.SM_HOST }}
-          SM_API_KEY: ${{ secrets.SM_API_KEY }}
-          SM_CLIENT_CERT_FILE: ${{ env.SM_CLIENT_CERT_FILE }}
-          SM_CLIENT_CERT_PASSWORD: ${{ secrets.SM_CLIENT_CERT_PASSWORD }}
 
       - name: Sign nupkg explicitly
         shell: bash
