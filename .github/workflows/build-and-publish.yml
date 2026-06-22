@@ -203,46 +203,8 @@ jobs:
           export SM_CLIENT_CERT_FILE="${RUNNER_TEMP}/Certificate_pkcs12.p12"
           echo "SM_CLIENT_CERT_FILE=$SM_CLIENT_CERT_FILE" >> "$GITHUB_ENV"
           echo "${{ secrets.SM_CLIENT_CERT_FILE }}" | base64 --decode > "${SM_CLIENT_CERT_FILE}"
-
-      - name: Install DigiCert smctl
-        shell: powershell
-        run: |
-          $msiUrl = "https://one.digicert.com/signingmanager/api-ui/v1/releases/smtools-windows-x64.msi/download"
-          $msiPath = "$env:RUNNER_TEMP\smtools-windows-x64.msi"
-          Invoke-WebRequest -Uri $msiUrl -OutFile $msiPath
-          Start-Process -FilePath msiexec.exe -ArgumentList "/i `"$msiPath`" /quiet /qn" -Wait
-          Add-Content $env:GITHUB_PATH "C:\Program Files\DigiCert\DigiCert One Signing Manager Tools"
-
-      - name: Sync sertifikat til Windows-store
-        shell: cmd
-        env:
-          SM_HOST: ${{ vars.SM_HOST }}
-          SM_API_KEY: ${{ secrets.SM_API_KEY }}
-          SM_CLIENT_CERT_FILE: ${{ env.SM_CLIENT_CERT_FILE }}
-          SM_CLIENT_CERT_PASSWORD: ${{ secrets.SM_CLIENT_CERT_PASSWORD }}
-          SM_KEYPAIR_ALIAS: ${{ vars.SM_KEY_PAIR_ALIAS }}
-        run: smctl windows certsync --keypair-alias=%SM_KEYPAIR_ALIAS%
-
-      - name: Sign nupkg explicitly
-        shell: bash
-        working-directory: packages
-        env:
-          SM_HOST: ${{ vars.SM_HOST }}
-          SM_API_KEY: ${{ secrets.SM_API_KEY }}
-          SM_CLIENT_CERT_FILE: ${{ env.SM_CLIENT_CERT_FILE }}
-          SM_CLIENT_CERT_PASSWORD: ${{ secrets.SM_CLIENT_CERT_PASSWORD }}
-        run: |
-          PKG=$(ls KS.Fiks.Link.Models.V1.*.nupkg | grep -v '\.snupkg$' | head -n1)
-          echo "Signing: $PKG"
-          smctl sign --fingerprint 3f5358f5c854e41f6768f43deeeb5c37a5a269e77bfeb316fdaaa2bfdaa0aa27 --input "$PKG" --verbose
-          echo "Exit code: $?"
-
-      - name: Verify signature
-        shell: bash
-        working-directory: packages
-        run: dotnet nuget verify *.nupkg --all
-
-      - name: Sign NuGet package via DigiCert Software Trust Manager
+          
+      - name: Setup Software Trust Manager and sign
         uses: digicert/code-signing-software-trust-action@v1
         with:
           simple-signing-mode: true
