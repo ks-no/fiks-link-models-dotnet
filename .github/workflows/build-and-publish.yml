@@ -218,7 +218,7 @@ jobs:
 
       - name: Sign nupkg explicitly
         shell: bash
-        working-directory: ${{ env.MODELS_FOLDER }}
+        working-directory: packages
         run: |
           PKG=$(ls KS.Fiks.Link.Models.V1.*.nupkg | grep -v '\.snupkg$' | head -n1)
           echo "Signing: $PKG"
@@ -227,7 +227,7 @@ jobs:
 
       - name: Verify signature
         shell: bash
-        working-directory: ${{ env.MODELS_FOLDER }}
+        working-directory: packages
         run: dotnet nuget verify *.nupkg --all
 
       - name: Sign NuGet package via DigiCert Software Trust Manager
