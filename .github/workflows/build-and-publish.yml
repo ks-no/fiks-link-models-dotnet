@@ -214,7 +214,7 @@ jobs:
         if: ${{ inputs.isRelease == true || inputs.pushToNugetOrg == true || 1==1 }}
         working-directory: ${{ env.MODELS_FOLDER }}
         env:
-          NUGET_ACCESS_KEY: ${{ secrets.KS_NUGET_API_KEY }}
+          NUGET_ACCESS_KEY: ${{ secrets.NUGET_API_KEY }}
           NUGET_PUSH_REPO: 'https://api.nuget.org/v3/index.json'
         run: dotnet nuget push *.nupkg -k "$NUGET_ACCESS_KEY" -s "$NUGET_PUSH_REPO"
 
