@@ -198,6 +198,7 @@ jobs:
 
       # ── Sign package ───────────────────────────────────────────────────────
       - name: Setup SM_CLIENT_CERT_FILE from base64 secret data
+        if :  ${{ inputs.isRelease == true || inputs.pushToNugetOrg == true }}
         shell: bash
         run: |
           export SM_CLIENT_CERT_FILE="${RUNNER_TEMP}/Certificate_pkcs12.p12"
@@ -205,6 +206,7 @@ jobs:
           echo "${{ secrets.SM_CLIENT_CERT_FILE }}" | base64 --decode > "${SM_CLIENT_CERT_FILE}"
           
       - name: Setup Software Trust Manager and sign
+        if:  ${{ inputs.isRelease == true || inputs.pushToNugetOrg == true }}
         uses: digicert/code-signing-software-trust-action@v1
         with:
           simple-signing-mode: true
@@ -217,6 +219,7 @@ jobs:
           SM_CLIENT_CERT_PASSWORD: ${{ secrets.SM_CLIENT_CERT_PASSWORD }}
 
       - name: Upload signed nupkg
+        if:  ${{ inputs.isRelease == true || inputs.pushToNugetOrg == true }}
         uses: actions/upload-artifact@v4
         with:
           name: signed-nupkg
@@ -230,7 +233,6 @@ jobs:
 
       # ── Push to Artifactory ────────────────────────────────────────────────
       - name: Push to Artifactory
-        if: 1==2
         working-directory: packages
         run: |
           dotnet nuget add source https://artifactory.fiks.ks.no/artifactory/api/nuget/nuget-all `
@@ -242,7 +244,7 @@ jobs:
 
       # ── Push to nuget.org ──────────────────────────────────────────────────
       - name: Push to nuget.org
-        if: ${{ inputs.isRelease == true || inputs.pushToNugetOrg == true || 1==1 }}
+        if: ${{ inputs.isRelease == true || inputs.pushToNugetOrg == true }}
         working-directory: packages
         env:
           NUGET_ACCESS_KEY: ${{ secrets.NUGET_API_KEY }}
