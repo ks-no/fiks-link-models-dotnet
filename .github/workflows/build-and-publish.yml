@@ -227,7 +227,7 @@ jobs:
         run: |
           PKG=$(ls KS.Fiks.Link.Models.V1.*.nupkg | grep -v '\.snupkg$' | head -n1)
           echo "Signing: $PKG"
-          smctl sign --fingerprint 854db564ebe05e35d4ce509b2df687d8f68d11e6 --input "$PKG" --verbose
+          smctl sign --fingerprint 3f5358f5c854e41f6768f43deeeb5c37a5a269e77bfeb316fdaaa2bfdaa0aa27 --input "$PKG" --verbose
           echo "Exit code: $?"
 
       - name: Verify signature
