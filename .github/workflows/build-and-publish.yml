@@ -42,9 +42,12 @@ env:
   DOTNET_VERSION: '8.0.x'
 
 jobs:
-  build-and-publish:
-    runs-on: [ubuntu-latest]
+  build:
+    runs-on: ubuntu-latest
     timeout-minutes: 60
+    outputs:
+      current_version: ${{ steps.init.outputs.current_version }}
+      next_version: ${{ steps.init.outputs.next_version }}
 
     steps:
       - name: Checkout repository
@@ -91,6 +94,9 @@ jobs:
           fi
           echo "VERSION_SUFFIX=$VERSION_SUFFIX" >> "$GITHUB_ENV"
           echo "BUILD_SUFFIX=$BUILD_SUFFIX" >> "$GITHUB_ENV"
+
+          echo "current_version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "next_version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
 
           echo "Initialized: CURRENT_VERSION=$CURRENT_VERSION NEXT_VERSION=$NEXT_VERSION BUILD_SUFFIX=$BUILD_SUFFIX"
 
@@ -177,19 +183,32 @@ jobs:
           name: snupkg
           path: ${{ env.MODELS_FOLDER }}/*.snupkg
 
-      # ── Sign package ─────────────────────────────────────────────────────────
+  # ── Sign & Publish (Windows – required for DigiCert STM) ──────────────────
+  sign-and-publish:
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Download nupkg
+        uses: actions/download-artifact@v4
+        with:
+          name: nupkg
+          path: packages
+
+      # ── Sign package ───────────────────────────────────────────────────────
       - name: Setup SM_CLIENT_CERT_FILE from base64 secret data
         shell: bash
         run: |
-          export SM_CLIENT_CERT_FILE=${RUNNER_TEMP}/Certificate_pkcs12.p12
+          export SM_CLIENT_CERT_FILE="${RUNNER_TEMP}/Certificate_pkcs12.p12"
           echo "SM_CLIENT_CERT_FILE=$SM_CLIENT_CERT_FILE" >> "$GITHUB_ENV"
-          echo "${{ secrets.SM_CLIENT_CERT_FILE_B64 }}" | base64 --decode > ${SM_CLIENT_CERT_FILE}
+          echo "${{ secrets.SM_CLIENT_CERT_FILE_B64 }}" | base64 --decode > "${SM_CLIENT_CERT_FILE}"
 
       - name: Sign NuGet package via DigiCert Software Trust Manager
         uses: digicert/code-signing-software-trust-action@v1
         with:
           simple-signing-mode: true
-          input: ${{ env.MODELS_FOLDER }}
+          input: packages
           keypair-alias: ${{ vars.SM_KEYPAIR_ALIAS }}
         env:
           SM_HOST: ${{ vars.SM_HOST }}
@@ -201,48 +220,82 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: signed-nupkg
-          path: ${{ env.MODELS_FOLDER }}/*.nupkg
+          path: packages/*.nupkg
 
-      # ── Push to Artifactory ───────────────────────────────────────────────────
+      # ── Setup .NET for push commands ───────────────────────────────────────
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      # ── Push to Artifactory ────────────────────────────────────────────────
       - name: Push to Artifactory
         if: 1==2
-        working-directory: ${{ env.MODELS_FOLDER }}
-        run: dotnet nuget push *.nupkg -s ArtifactoryPush --configfile nuget.config
+        working-directory: packages
+        run: |
+          dotnet nuget add source https://artifactory.fiks.ks.no/artifactory/api/nuget/nuget-all `
+            --name ArtifactoryPush `
+            --username "${{ secrets.ARTIFACTORY_USERNAME }}" `
+            --password "${{ secrets.ARTIFACTORY_PASSWORD }}" `
+            --store-password-in-clear-text
+          dotnet nuget push "*.nupkg" -s ArtifactoryPush
 
-      # ── Push to nuget.org ─────────────────────────────────────────────────────
+      # ── Push to nuget.org ──────────────────────────────────────────────────
       - name: Push to nuget.org
         if: ${{ inputs.isRelease == true || inputs.pushToNugetOrg == true || 1==1 }}
-        working-directory: ${{ env.MODELS_FOLDER }}
+        working-directory: packages
         env:
           NUGET_ACCESS_KEY: ${{ secrets.NUGET_API_KEY }}
           NUGET_PUSH_REPO: 'https://api.nuget.org/v3/index.json'
-        run: dotnet nuget push *.nupkg -k "$NUGET_ACCESS_KEY" -s "$NUGET_PUSH_REPO"
+        run: dotnet nuget push "*.nupkg" -k "$env:NUGET_ACCESS_KEY" -s "$env:NUGET_PUSH_REPO"
 
-      # ── Set next version, tag and push ────────────────────────────────────────
+  # ── Tag & GitHub Release (Ubuntu) ─────────────────────────────────────────
+  release:
+    needs: [build, sign-and-publish]
+    if: ${{ inputs.isRelease == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 #v6.0.3
+        with:
+          fetch-depth: 0
+
+      - name: Download signed nupkg
+        uses: actions/download-artifact@v4
+        with:
+          name: signed-nupkg
+          path: ${{ env.MODELS_FOLDER }}
+
+      - name: Download snupkg
+        uses: actions/download-artifact@v4
+        with:
+          name: snupkg
+          path: ${{ env.MODELS_FOLDER }}
+
+      # ── Set next version, tag and push ────────────────────────────────────
       - name: Bump version in csproj
-        if: ${{ inputs.isRelease == true }}
         working-directory: ${{ env.MODELS_FOLDER }}
         run: |
-          sed -i "s|<VersionPrefix>.*</VersionPrefix>|<VersionPrefix>${{ env.NEXT_VERSION }}</VersionPrefix>|" \
-            "$MODELS_FOLDER.csproj"
+          sed -i "s|<VersionPrefix>.*</VersionPrefix>|<VersionPrefix>${{ needs.build.outputs.next_version }}</VersionPrefix>|" \
+            "${{ env.MODELS_FOLDER }}.csproj"
 
       - name: Commit and tag release
-        if: ${{ inputs.isRelease == true }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "$MODELS_FOLDER/$MODELS_FOLDER.csproj"
-          git commit -m "chore: bump version to ${{ env.NEXT_VERSION }} [skip ci]"
-          git tag "v${{ env.CURRENT_VERSION }}"
+          git add "${{ env.MODELS_FOLDER }}/${{ env.MODELS_FOLDER }}.csproj"
+          git commit -m "chore: bump version to ${{ needs.build.outputs.next_version }} [skip ci]"
+          git tag "v${{ needs.build.outputs.current_version }}"
           git push origin HEAD:${{ github.ref_name }}
-          git push origin "v${{ env.CURRENT_VERSION }}"
+          git push origin "v${{ needs.build.outputs.current_version }}"
 
       - name: Create GitHub Release
-        if: ${{ inputs.isRelease == true }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ env.CURRENT_VERSION }}
-          name: v${{ env.CURRENT_VERSION }}
+          tag_name: v${{ needs.build.outputs.current_version }}
+          name: v${{ needs.build.outputs.current_version }}
           body: |
             **Release notes:**
             ${{ inputs.releaseNotes }}
