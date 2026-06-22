@@ -202,7 +202,7 @@ jobs:
         run: |
           export SM_CLIENT_CERT_FILE="${RUNNER_TEMP}/Certificate_pkcs12.p12"
           echo "SM_CLIENT_CERT_FILE=$SM_CLIENT_CERT_FILE" >> "$GITHUB_ENV"
-          echo "${{ secrets.SM_CLIENT_CERT_FILE_B64 }}" | base64 --decode > "${SM_CLIENT_CERT_FILE}"
+          echo "${{ secrets.SM_CLIENT_CERT_FILE }}" | base64 --decode > "${SM_CLIENT_CERT_FILE}"
 
       - name: Sign NuGet package via DigiCert Software Trust Manager
         uses: digicert/code-signing-software-trust-action@v1
