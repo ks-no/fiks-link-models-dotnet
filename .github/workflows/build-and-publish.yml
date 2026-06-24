@@ -198,7 +198,7 @@ jobs:
 
       # ── Sign package ───────────────────────────────────────────────────────
       - name: Setup SM_CLIENT_CERT_FILE from base64 secret data
-        if :  ${{ inputs.isRelease == true || inputs.pushToNugetOrg == true }}
+        if:  ${{ inputs.isRelease == true || inputs.pushToNugetOrg == true }}
         shell: bash
         run: |
           export SM_CLIENT_CERT_FILE="${RUNNER_TEMP}/Certificate_pkcs12.p12"
