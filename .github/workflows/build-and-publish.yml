@@ -190,40 +190,23 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      # ── Sign package ───────────────────────────────────────────────────────
       - name: Download nupkg
+        if: ${{ !(inputs.isRelease == true || inputs.pushToNugetOrg == true) }}
         uses: actions/download-artifact@v4
         with:
           name: nupkg
           path: packages
 
-      # ── Sign package ───────────────────────────────────────────────────────
-      - name: Setup SM_CLIENT_CERT_FILE from base64 secret data
-        if:  ${{ inputs.isRelease == true || inputs.pushToNugetOrg == true }}
-        shell: bash
-        run: |
-          export SM_CLIENT_CERT_FILE="${RUNNER_TEMP}/Certificate_pkcs12.p12"
-          echo "SM_CLIENT_CERT_FILE=$SM_CLIENT_CERT_FILE" >> "$GITHUB_ENV"
-          echo "${{ secrets.SM_CLIENT_CERT_FILE }}" | base64 --decode > "${SM_CLIENT_CERT_FILE}"
-          
-      - name: Setup Software Trust Manager and sign
-        if:  ${{ inputs.isRelease == true || inputs.pushToNugetOrg == true }}
-        uses: digicert/code-signing-software-trust-action@v1
+      - name: Sign NuGet packages
+        if: ${{ inputs.isRelease == true || inputs.pushToNugetOrg == true }}
+        uses: ks-no/github-actions-public/dotnet-sign-nuget-packages@main
         with:
-          simple-signing-mode: true
-          input: packages
-          keypair-alias: ${{ vars.SM_KEY_PAIR_ALIAS }}
-        env:
-          SM_HOST: ${{ vars.SM_HOST }}
-          SM_API_KEY: ${{ secrets.SM_API_KEY }}
-          SM_CLIENT_CERT_FILE: ${{ env.SM_CLIENT_CERT_FILE }}
-          SM_CLIENT_CERT_PASSWORD: ${{ secrets.SM_CLIENT_CERT_PASSWORD }}
-
-      - name: Upload signed nupkg
-        if:  ${{ inputs.isRelease == true || inputs.pushToNugetOrg == true }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: signed-nupkg
-          path: packages/*.nupkg
+          sm-host: ${{ vars.SM_HOST }}
+          sm-keypair-alias: ${{ vars.SM_KEY_PAIR_ALIAS }}
+          sm-api-key: ${{ secrets.SM_API_KEY }}
+          sm-client-cert-file-base64: ${{ secrets.SM_CLIENT_CERT_FILE }}
+          sm-client-cert-password: ${{ secrets.SM_CLIENT_CERT_PASSWORD }}
 
       # ── Setup .NET for push commands ───────────────────────────────────────
       - name: Setup .NET
